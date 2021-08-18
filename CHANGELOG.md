@@ -26,7 +26,7 @@ All notable changes to Sourcegraph are documented in this file.
 - Code Insights will do a one-time reset of ephemeral insights specific database tables to clean up stale and invalid data. Insight data will regenerate automatically. [23791](https://github.com/sourcegraph/sourcegraph/pull/23791)
 - Perforce: added basic support for Perforce permission table path wildcards. [#23755](https://github.com/sourcegraph/sourcegraph/pull/23755)
 - Added autocompletion and search filtering of branch/tag/commit revisions to the repository compare page. [#23977](https://github.com/sourcegraph/sourcegraph/pull/23977)
-- Code Insights drill-down filters allow filtering insights data on the dashboard page. [#23186](https://github.com/sourcegraph/sourcegraph/issues/23186) 
+- Code Insights drill-down filters now allow filtering insights data on the dashboard page using repo: filters. [#23186](https://github.com/sourcegraph/sourcegraph/issues/23186) 
 
 ### Changed
 
