@@ -21,7 +21,6 @@ import (
 	otlog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sourcegraph/sourcegraph/internal/search/unindexed"
 
 	"github.com/sourcegraph/sourcegraph/cmd/frontend/envvar"
 	searchlogs "github.com/sourcegraph/sourcegraph/cmd/frontend/internal/search/logs"
@@ -42,6 +41,7 @@ import (
 	"github.com/sourcegraph/sourcegraph/internal/search/run"
 	"github.com/sourcegraph/sourcegraph/internal/search/searchcontexts"
 	"github.com/sourcegraph/sourcegraph/internal/search/streaming"
+	"github.com/sourcegraph/sourcegraph/internal/search/unindexed"
 	"github.com/sourcegraph/sourcegraph/internal/trace"
 	"github.com/sourcegraph/sourcegraph/internal/trace/ot"
 	"github.com/sourcegraph/sourcegraph/internal/types"
@@ -613,7 +613,27 @@ func (r *searchResolver) toSearchInputs(q query.Q) (*search.TextParameters, []ru
 	}
 	args = withResultTypes(args, forceResultTypes)
 	args = withMode(args, r.PatternType, r.VersionContext)
-	return &args, nil, nil
+
+	var jobs []run.Job
+	{
+		// This code block creates search jobs under specific
+		// conditions, and depending on generic process of `args` above.
+		// It which specializes search logic in doResults. In time, all
+		// of the above logic should be used to create search jobs
+		// across all of Sourcegraph.
+		if r.PatternType == query.SearchTypeStructural && p.Pattern != "" {
+			jobs = append(jobs, &unindexed.StructuralSearch{
+				RepoFetcher: unindexed.NewRepoFetcher(r.stream, &args),
+				Mode:        args.Mode,
+				SearcherArgs: search.SearcherParameters{
+					SearcherURLs:    args.SearcherURLs,
+					PatternInfo:     args.PatternInfo,
+					UseFullDeadline: args.UseFullDeadline,
+				},
+			})
+		}
+	}
+	return &args, jobs, nil
 }
 
 // evaluateLeaf performs a single search operation and corresponds to the
@@ -1580,21 +1600,6 @@ func (r *searchResolver) doResults(ctx context.Context, args *search.TextParamet
 				_ = agg.DoFilePathSearch(ctx, args)
 			})
 		}
-	}
-
-	if args.ResultTypes.Has(result.TypeStructural) {
-		wg := waitGroup(true)
-		wg.Add(1)
-		goroutine.Go(func() {
-			defer wg.Done()
-			repoFetcher := unindexed.NewRepoFetcher(agg, args)
-			searcherArgs := &search.SearcherParameters{
-				SearcherURLs:    args.SearcherURLs,
-				PatternInfo:     args.PatternInfo,
-				UseFullDeadline: args.UseFullDeadline,
-			}
-			_ = agg.DoStructuralSearch(ctx, searcherArgs, args.Mode, repoFetcher)
-		})
 	}
 
 	if args.ResultTypes.Has(result.TypeDiff) {
