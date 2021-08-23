@@ -482,7 +482,7 @@ func (r *searchResolver) Suggestions(ctx context.Context, args *searchSuggestion
 		ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 		defer cancel()
 		if len(r.Query.Values(query.FieldDefault)) > 0 {
-			searchArgs, err := r.toTextParameters(r.Query)
+			searchArgs, _, err := r.toSearchInputs(r.Query)
 			if err != nil {
 				return nil, err
 			}
